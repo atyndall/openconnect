@@ -1447,3 +1447,9 @@ out:
 
 	return result;
 }
+
+int cstp_required_cookies_present(struct openconnect_info *vpninfo)
+{
+	/* not currently implemented */
+	return 0;
+}

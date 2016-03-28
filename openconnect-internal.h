@@ -269,6 +269,9 @@ struct vpn_proto {
 
 	/* Close and destroy the (UDP) session */
 	void (*udp_shutdown)(struct openconnect_info *vpninfo);
+
+	/* Determines if we have the required cookies to stop following redirects */
+	int (*required_cookies_present)(struct openconnect_info *vpninfo);
 };
 
 struct pkt_q {
@@ -780,6 +783,7 @@ int compress_packet(struct openconnect_info *vpninfo, int compr_type, struct pkt
 /* auth-juniper.c */
 int oncp_obtain_cookie(struct openconnect_info *vpninfo);
 void oncp_common_headers(struct openconnect_info *vpninfo, struct oc_text_buf *buf);
+int oncp_required_cookies_present(struct openconnect_info *vpninfo);
 
 /* oncp.c */
 int queue_esp_control(struct openconnect_info *vpninfo, int enable);
@@ -912,6 +916,7 @@ int do_gen_yubikey_code(struct openconnect_info *vpninfo,
 
 /* auth.c */
 int cstp_obtain_cookie(struct openconnect_info *vpninfo);
+int cstp_required_cookies_present(struct openconnect_info *vpninfo);
 
 /* auth-common.c */
 int xmlnode_is_named(xmlNode *xml_node, const char *name);

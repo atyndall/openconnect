@@ -632,3 +632,25 @@ int oncp_obtain_cookie(struct openconnect_info *vpninfo)
 	buf_free(resp_buf);
 	return ret;
 }
+
+int oncp_required_cookies_present(struct openconnect_info *vpninfo)
+{
+	struct oc_vpn_option *cookie;
+	int dsfirst = 0;
+	int dslast = 0;
+	int dsid = 0;
+	int dsurl = 0;
+
+	for (cookie = vpninfo->cookies; cookie; cookie = cookie->next) {
+		if (!strcmp(cookie->option, "DSFirstAccess"))
+			dsfirst = 1;
+		else if (!strcmp(cookie->option, "DSLastAccess"))
+			dslast = 1;
+		else if (!strcmp(cookie->option, "DSID"))
+			dsid = 1;
+		else if (!strcmp(cookie->option, "DSSignInUrl"))
+			dsurl = 1;
+	}
+
+	return (dsid && dsfirst && dslast);
+}

@@ -909,6 +909,8 @@ int do_https_request(struct openconnect_info *vpninfo, const char *method,
 		goto redirected;
 	}
 	if (result != 200 && vpninfo->redirect_url) {
+		if (vpninfo->proto.required_cookies_present(vpninfo)) goto out;
+
 		result = handle_redirect(vpninfo);
 		if (result == 0) {
 			if (!fetch_redirect)

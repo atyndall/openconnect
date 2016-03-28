@@ -112,6 +112,7 @@ int openconnect_set_protocol(struct openconnect_info *vpninfo, const char *proto
 		vpninfo->proto.tcp_mainloop = cstp_mainloop;
 		vpninfo->proto.add_http_headers = cstp_common_headers;
 		vpninfo->proto.obtain_cookie = cstp_obtain_cookie;
+		vpninfo->proto.required_cookies_present = cstp_required_cookies_present;
 #ifdef HAVE_DTLS
 		vpninfo->proto.udp_setup = dtls_setup;
 		vpninfo->proto.udp_mainloop = dtls_mainloop;
@@ -126,6 +127,8 @@ int openconnect_set_protocol(struct openconnect_info *vpninfo, const char *proto
 		vpninfo->proto.tcp_mainloop = oncp_mainloop;
 		vpninfo->proto.add_http_headers = oncp_common_headers;
 		vpninfo->proto.obtain_cookie = oncp_obtain_cookie;
+		vpninfo->proto.required_cookies_present = oncp_required_cookies_present;
+
 #if defined(ESP_GNUTLS) || defined(ESP_OPENSSL)
 		vpninfo->proto.udp_setup = esp_setup;
 		vpninfo->proto.udp_mainloop = esp_mainloop;
