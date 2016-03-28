@@ -564,15 +564,6 @@ int oncp_obtain_cookie(struct openconnect_info *vpninfo)
 					success = 1;
 					ret = 0;
 					goto form_done;
-				} else {
-					vpn_progress(vpninfo, PRG_ERR,
-						     _("Unknown form ID '%s'\n"),
-						     form_id);
-				dump_form:
-					fprintf(stderr, _("Dumping unknown HTML form:\n"));
-					htmlNodeDumpFileFormat(stderr, node->doc, node, NULL, 1);
-					ret = -EINVAL;
-					continue;
 				}
 				success = 1;
 				ret = 0;
