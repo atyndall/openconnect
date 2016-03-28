@@ -478,7 +478,7 @@ int oncp_obtain_cookie(struct openconnect_info *vpninfo)
 	char *form_id = NULL;
 	int try_tncc = !!vpninfo->csd_wrapper;
 	xmlNodePtr root;
-	int success = 0;
+	int form_matched = 0;
 
 	resp_buf = buf_alloc();
 	if (buf_error(resp_buf))
@@ -561,16 +561,16 @@ int oncp_obtain_cookie(struct openconnect_info *vpninfo)
 						continue;
 					}
 					/* XXX: Actually ask the user? */
-					success = 1;
+					form_matched = 1;
 					ret = 0;
 					goto form_done;
 				}
-				success = 1;
+				form_matched = 1;
 				ret = 0;
 			}
 		}
 
-		if (!success) {
+		if (!form_matched) {
 			if (try_tncc) {
 				try_tncc = 0;
 				ret = tncc_preauth(vpninfo);
