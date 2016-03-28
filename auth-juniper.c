@@ -288,17 +288,6 @@ static int oncp_https_submit(struct openconnect_info *vpninfo,
 	return 0;
 }
 
-static xmlNodePtr find_form_node(xmlDocPtr doc)
-{
-	xmlNodePtr root, node;
-
-	for (root = node = xmlDocGetRootElement(doc); node; node = htmlnode_next(root, node)) {
-		if (node->name && !strcasecmp((char *)node->name, "form"))
-			return node;
-	}
-	return NULL;
-}
-
 static int check_cookie_success(struct openconnect_info *vpninfo)
 {
 	const char *dslast = NULL, *dsfirst = NULL, *dsurl = NULL, *dsid = NULL;
@@ -488,20 +477,109 @@ int oncp_obtain_cookie(struct openconnect_info *vpninfo)
 	struct oc_auth_form *form = NULL;
 	char *form_id = NULL;
 	int try_tncc = !!vpninfo->csd_wrapper;
+	xmlNodePtr root;
+	int success = 0;
 
 	resp_buf = buf_alloc();
 	if (buf_error(resp_buf))
 		return -ENOMEM;
 
 	while (1) {
-		ret = oncp_https_submit(vpninfo, resp_buf, &doc);
-		if (ret || !check_cookie_success(vpninfo))
+		char *form_buf = NULL;
+		struct oc_text_buf *url;
+
+		if (resp_buf && resp_buf->pos)
+			ret = do_https_request(vpninfo, "POST",
+					       "application/x-www-form-urlencoded",
+					       resp_buf, &form_buf, 2);
+		else
+			ret = do_https_request(vpninfo, "GET", NULL, NULL,
+					       &form_buf, 2);
+
+		if (ret < 0)
 			break;
+
+		url = buf_alloc();
+		buf_append(url, "https://%s", vpninfo->hostname);
+		if (vpninfo->port != 443)
+			buf_append(url, ":%d", vpninfo->port);
+		buf_append(url, "/");
+		if (vpninfo->urlpath)
+			buf_append(url, "%s", vpninfo->urlpath);
+
+		if (buf_error(url)) {
+			free(form_buf);
+			ret = buf_free(url);
+			break;
+		}
+
+		if (!check_cookie_success(vpninfo)) {
+			buf_free(url);
+			free(form_buf);
+			ret = 0;
+			break;
+		}
+
+		doc = htmlReadMemory(form_buf, ret, url->data, NULL,
+				     HTML_PARSE_RECOVER|HTML_PARSE_NOERROR|HTML_PARSE_NOWARNING|HTML_PARSE_NONET);
+		buf_free(url);
+		free(form_buf);
+		if (!doc) {
+			vpn_progress(vpninfo, PRG_ERR,
+				     _("Failed to parse HTML document\n"));
+			ret = -EINVAL;
+			break;
+		}
 
 		buf_truncate(resp_buf);
 
-		node = find_form_node(doc);
-		if (!node) {
+		for (root = node = xmlDocGetRootElement(doc); node; node = htmlnode_next(root, node)) {
+			if (node->name && !strcasecmp((char *)node->name, "form")) {
+				free(form_id);
+				form_id = (char *)xmlGetProp(node, (unsigned char *)"name");
+				if (!form_id) {
+					vpn_progress(vpninfo, PRG_ERR,
+						     _("Encountered form with no ID\n"));
+					continue;
+				} else if (!strcmp(form_id, "frmLogin")) {
+					form = parse_form_node(vpninfo, node, "btnSubmit");
+					if (!form) {
+						ret = -EINVAL;
+						continue;
+					}
+				} else if (!strcmp(form_id, "frmDefender") ||
+					   !strcmp(form_id, "frmNextToken")) {
+					form = parse_form_node(vpninfo, node, "btnAction");
+					if (!form) {
+						ret = -EINVAL;
+						continue;
+					}
+				} else if (!strcmp(form_id, "frmConfirmation")) {
+					form = parse_form_node(vpninfo, node, "btnContinue");
+					if (!form) {
+						ret = -EINVAL;
+						continue;
+					}
+					/* XXX: Actually ask the user? */
+					success = 1;
+					ret = 0;
+					goto form_done;
+				} else {
+					vpn_progress(vpninfo, PRG_ERR,
+						     _("Unknown form ID '%s'\n"),
+						     form_id);
+				dump_form:
+					fprintf(stderr, _("Dumping unknown HTML form:\n"));
+					htmlNodeDumpFileFormat(stderr, node->doc, node, NULL, 1);
+					ret = -EINVAL;
+					continue;
+				}
+				success = 1;
+				ret = 0;
+			}
+		}
+
+		if (!success) {
 			if (try_tncc) {
 				try_tncc = 0;
 				ret = tncc_preauth(vpninfo);
@@ -514,43 +592,7 @@ int oncp_obtain_cookie(struct openconnect_info *vpninfo)
 			ret = -EINVAL;
 			break;
 		}
-		free(form_id);
-		form_id = (char *)xmlGetProp(node, (unsigned char *)"name");
-		if (!form_id) {
-			vpn_progress(vpninfo, PRG_ERR,
-				     _("Encountered form with no ID\n"));
-			goto dump_form;
-		} else if (!strcmp(form_id, "frmLogin")) {
-			form = parse_form_node(vpninfo, node, "btnSubmit");
-			if (!form) {
-				ret = -EINVAL;
-				break;
-			}
-		} else if (!strcmp(form_id, "frmDefender") ||
-			   !strcmp(form_id, "frmNextToken")) {
-			form = parse_form_node(vpninfo, node, "btnAction");
-			if (!form) {
-				ret = -EINVAL;
-				break;
-			}
-		} else if (!strcmp(form_id, "frmConfirmation")) {
-			form = parse_form_node(vpninfo, node, "btnContinue");
-			if (!form) {
-				ret = -EINVAL;
-				break;
-			}
-			/* XXX: Actually ask the user? */
-			goto form_done;
-		} else {
-			vpn_progress(vpninfo, PRG_ERR,
-				     _("Unknown form ID '%s'\n"),
-				     form_id);
-		dump_form:
-			fprintf(stderr, _("Dumping unknown HTML form:\n"));
-			htmlNodeDumpFileFormat(stderr, node->doc, node, NULL, 1);
-			ret = -EINVAL;
-			break;
-		}
+		
 
 		do {
 			ret = process_auth_form(vpninfo, form);
