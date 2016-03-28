@@ -1,6 +1,6 @@
 #!/bin/sh
 
-v="v7.06"
+v="v7.06-atyndall1"
 
 if [ -d ${GIT_DIR:-.git} ] && tag=`git describe --tags`; then
 	v="$tag"
