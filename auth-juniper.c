@@ -146,7 +146,7 @@ static int parse_input_node(struct openconnect_info *vpninfo, struct oc_auth_for
 
 	/* Append to the existing list */
 	while (*p) {
-		if (!strcmp((*p)->name, opt->name)) {
+		if ((*p)->name && !strcmp((*p)->name, opt->name)) {
 			vpn_progress(vpninfo, PRG_DEBUG,
 				     _("Discarding duplicate option '%s'\n"),
 				     opt->name);
